@@ -26,23 +26,17 @@ class RevolvedSolid {
 		// bind vertex data
 		this.canvas.boundAttribute["vPosition"] = this.vertexBuffer
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer)
-		const vPosition = gl.getAttribLocation(program, "vPosition")
-		gl.vertexAttribPointer(vPosition, 3, gl.FLOAT, false, 0, 0)
-		gl.enableVertexAttribArray(vPosition)
+		gl.vertexAttribPointer(this.canvas.attribute["vPosition"], 3, gl.FLOAT, false, 0, 0)
 
 		// bind normal data
 		this.canvas.boundAttribute["vNormal"] = this.normalBuffer
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer)
-		const vNormal = gl.getAttribLocation(program, "vNormal")
-		gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0)
-		gl.enableVertexAttribArray(vNormal)
+		gl.vertexAttribPointer(this.canvas.attribute["vNormal"], 3, gl.FLOAT, false, 0, 0)
 
 		// bind color data
 		this.canvas.boundAttribute["vColor"] = this.normalBuffer
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer)
-		const vColor = gl.getAttribLocation(program, "vColor")
-		gl.vertexAttribPointer(vColor, 3, gl.FLOAT, false, 0, 0)
-		gl.enableVertexAttribArray(vColor)
+		gl.vertexAttribPointer(this.canvas.attribute["vColor"], 3, gl.FLOAT, false, 0, 0)
 
 		const modelMatrix = translate(add(this.location, vec3(0, -this.height / 2, 0)))
 		
@@ -67,8 +61,7 @@ class RevolvedSolid {
 		if(this.canvas.drawNormals) {
 			// bind line data
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer)
-			gl.vertexAttribPointer(vPosition, 3, gl.FLOAT, false, 0, 0)
-			gl.enableVertexAttribArray(vPosition)
+			gl.vertexAttribPointer(this.canvas.attribute["vPosition"], 3, gl.FLOAT, false, 0, 0)
 
 			// apply line uniform
 			gl.uniform1i(this.canvas.getUniformLocation(program, "isLine"), 1)

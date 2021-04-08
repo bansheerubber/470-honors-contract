@@ -76,11 +76,12 @@ document.getElementById("gl-canvas").addEventListener("mousemove", event => {
 
 document.getElementById("gl-canvas").addEventListener("wheel", event => {
 	if(isLocked) {
+		const amount = event.deltaY > 0 ? 10 : -10
 		if(canvas.zoomMode && !canvas.space && !canvas.shift) {
-			canvas.fov = Math.min(Math.max(canvas.fov - event.deltaY / 10, 10), 80)
+			canvas.fov = Math.min(Math.max(canvas.fov - amount / 10, 10), 80)
 		}
 		else {
-			canvas.moveSpeed = Math.max(canvas.moveSpeed - event.deltaY, 100)
+			canvas.moveSpeed = Math.max(canvas.moveSpeed - amount, 100)
 		}
 		event.preventDefault()
 	}
