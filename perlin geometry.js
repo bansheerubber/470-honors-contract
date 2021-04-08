@@ -193,7 +193,7 @@ class Terrain {
 				normals.push(point.normal)
 
 				lines.push(point)
-				lines.push(add(scale(2, point.normal), point))
+				lines.push(add(scale(20, point.normal), point))
 			}
 		}
 

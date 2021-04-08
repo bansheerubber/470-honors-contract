@@ -141,14 +141,14 @@ class Canvas {
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 	}
 
-	render() {
+	render(time) {
 		const gl = this.gl
 		const program = this.program
 
-		const startTime = performance.now()
-		const deltaTime = 0.0166666
+		const startTime = time ? time : 0
+		const deltaTime = ((startTime - this.lastRender) + this.lastRenderTime) / 1000
 
-		document.getElementById("info").innerHTML = `${(1 / ((startTime - this.lastRender) / 1000)).toFixed(1)} FPS<br>${this.lastRenderTime | 0}ms<br>${this.terrain.totalVertexCount / 3 + this.solids.reduce((total, value) => total + value.vertexCount, 0) / 3} triangles<br>GPU: ${this.gpuName}`
+		document.getElementById("info").innerHTML = `${(1 / deltaTime).toFixed(1)} FPS<br>${this.lastRenderTime | 0}ms<br>${this.terrain.totalVertexCount / 3 + this.solids.reduce((total, value) => total + value.vertexCount, 0) / 3} triangles<br>GPU: ${this.gpuName}`
 
 		this.eyePhi = Math.min(Math.max(this.eyePhi, -Math.PI / 2 + 0.01), Math.PI / 2 - 0.01)
 
