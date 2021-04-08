@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+
+<!-- Jacob Watson -->
+
+<html>
+	<head>
+		<script id="vertex-shader" type="x-shader/x-vertex">
+			precision mediump float;
+			
+			attribute vec3 vPosition;
+			attribute vec3 vNormal;
+			attribute vec4 vColor;
+
+			varying vec3 position;
+			varying vec3 normal;
+			varying vec4 color;
+
+			uniform mat4 modelMatrix;
+			uniform mat4 viewMatrix;
+			uniform mat4 projectionMatrix;
+
+			void main() {
+				normal = vNormal;
+				color = vColor;
+				
+				position = vPosition;
+				gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(vPosition, 1);
+			}
+		</script>
+		
+		<script id="fragment-shader" type="x-shader/x-fragment">
+			precision mediump float;
+
+			const int cascades = 4;
+
+			varying vec3 position;
+			varying vec3 normal;
+			varying vec4 color;
+
+			uniform int isLine;
+			uniform int isShaderless;
+			uniform int isShadowless;
+			uniform int hasFlashlight;
+			uniform int projectShadowmap;
+			uniform int showCascades;
+			uniform vec3 sunDirection;
+			uniform vec4 sunAmbientColor;
+			uniform vec4 sunDiffuseColor;
+
+			uniform mat4 modelMatrix;
+			uniform mat4 viewMatrix;
+			uniform mat4 projectionMatrix;
+
+			uniform mat4 shadowViewMatrix[cascades];
+			uniform mat4 shadowProjectionMatrix[cascades];
+			uniform mat4 biasMatrix;
+
+			uniform sampler2D shadowmap[cascades];
+
+			bool isValidShadowCoordinate(vec4 shadowCoordinate) {
+				if(shadowCoordinate.x >= 0.0
+					&& shadowCoordinate.x <= 1.0
+					&& shadowCoordinate.y >= 0.0
+					&& shadowCoordinate.y <= 1.0
+					&& shadowCoordinate.z <= 1.0
+					&& shadowCoordinate.z >= 0.0
+				) {
+					return true;
+				}
+				else {
+					return false;
+				}
+			}
+
+			vec4 getTexture(vec4 position) {
+				for(int i = 0; i < cascades; i++) {
+					vec4 shadowCoordinate = biasMatrix * shadowProjectionMatrix[i] * shadowViewMatrix[i] * modelMatrix * position;
+					if(isValidShadowCoordinate(shadowCoordinate)) {
+						float value = texture2D(shadowmap[i], shadowCoordinate.xy).x;
+						if(showCascades == 1) {
+							if(i == 0) {
+								return vec4(value, 0, 0, 1);
+							}
+							else if(i == 1) {
+								return vec4(0, value, 0, 1);
+							}
+							else if(i == 2) {
+								return vec4(0, 0, value, 1);
+							}
+							else if(i == 3) {
+								return vec4(value, 0, value, 1);
+							}
+						}
+						else {
+							return vec4(value, value, value, 1);
+						}
+					}
+				}
+				return vec4(0, 0, 0, 0);
+			}
+
+			bool isInShadow(vec4 position) {
+				for(int i = 0; i < cascades; i++) {
+					vec4 shadowCoordinate = biasMatrix * shadowProjectionMatrix[i] * shadowViewMatrix[i] * modelMatrix * position;
+					if(isValidShadowCoordinate(shadowCoordinate)) {
+						float bias = 0.0004 * float(i) + 0.0014;
+						return texture2D(shadowmap[i], shadowCoordinate.xy).x < shadowCoordinate.z - bias;
+					}
+				}
+				return false;
+			}
+			
+			void main() {
+				if(isLine == 1) {
+					gl_FragColor = vec4(1, 1, 0, 1);
+					return;
+				}
+
+				if(isShaderless == 1) {
+					gl_FragColor = color;
+					return;
+				}
+				
+				vec4 eyePosition = viewMatrix * modelMatrix * vec4(position, 1);
+				vec3 L = (viewMatrix * vec4(sunDirection, 0)).xyz;
+				vec3 E = normalize((-eyePosition).xyz);
+				vec3 H = normalize(sunDirection + E);
+				vec3 N = normalize((viewMatrix * modelMatrix * vec4(normal, 0)).xyz);
+				float Kd = min(max(-dot(L, N), 0.0), 1.0);
+
+				if(
+					isShadowless == 0
+					&& isInShadow(vec4(position, 1))
+				) {
+					Kd = 0.0;
+				}
+
+				if(
+					projectShadowmap == 1
+				) {
+					vec4 textureValue = getTexture(vec4(position, 1));
+					if(length(textureValue) > 0.0) {
+						gl_FragColor = textureValue;
+						return;
+					}
+				}
+
+				vec4 lightColor = vec4(0, 0, 0, 1);
+				if(hasFlashlight == 1) {
+					float distance = length(eyePosition.xyz);
+					float lightRadius = 500.0;
+					float lightStrength = max(lightRadius - distance, 0.0) / lightRadius;
+					Kd = min(Kd + lightStrength, 1.0);
+					lightColor = vec4(0.4, 0.4, 0.1, 1) * lightStrength;
+				}
+
+				vec4 diffuseColor = Kd * sunDiffuseColor * color;
+				vec4 ambientColor = (1.0 - Kd) * sunAmbientColor * color;
+				
+				gl_FragColor = ambientColor + diffuseColor + lightColor;
+			}
+		</script>
+
+		<script id="depth-vertex-shader" type="x-shader/x-vertex">
+			precision mediump float;
+			
+			attribute vec3 vPosition;
+			attribute vec3 vNormal;
+			attribute vec4 vColor;
+
+			varying vec3 position;
+			varying vec3 normal;
+			varying vec4 color;
+
+			uniform mat4 modelMatrix;
+			uniform mat4 viewMatrix;
+			uniform mat4 projectionMatrix;
+
+			void main() {
+				position = vPosition;
+				normal = vNormal;
+				color = vColor;
+				gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(vPosition, 1);
+			}
+		</script>
+		
+		<script id="depth-fragment-shader" type="x-shader/x-fragment">
+			precision mediump float;
+
+			varying vec3 normal;
+			varying vec3 position;
+			varying vec4 color;
+			
+			void main() {
+				gl_FragColor = vec4(1);
+			}
+		</script>
+
+		<script id="shadowmap-preview-vertex-shader" type="x-shader/x-vertex">
+			precision mediump float;
+			
+			attribute vec3 vPosition;
+			attribute vec3 vNormal;
+			attribute vec4 vColor;
+
+			varying vec3 position;
+			varying vec3 normal;
+			varying vec4 color;
+
+			uniform mat4 modelMatrix;
+			uniform mat4 viewMatrix;
+			uniform mat4 projectionMatrix;
+
+			void main() {
+				position = vPosition;
+				normal = vNormal;
+				color = vColor;
+				gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(vPosition, 1);
+			}
+		</script>
+
+		<script id="shadowmap-preview-fragment-shader" type="x-shader/x-fragment">
+			precision mediump float;
+
+			varying vec3 normal;
+			varying vec3 position;
+			varying vec4 color;
+
+			uniform sampler2D shadowmap;
+			
+			void main() {
+				gl_FragColor = vec4(texture2D(shadowmap, color.xy).rrr, 1); // use color as uv b/c idc about adding another attribute lol
+			}
+		</script>
+
+		<script type="text/javascript" src="webgl-utils.js"></script>
+		<script type="text/javascript" src="initShaders.js"></script>
+		<script type="text/javascript" src="MV.js"></script>
+		<script type="text/javascript" src="random.js"></script>
+		<script type="text/javascript" src="renderer.js"></script>
+		<script type="text/javascript" src="perlin.js"></script>
+		<script type="text/javascript" src="revolved solid.js"></script>
+		<script type="text/javascript" src="perlin geometry.js"></script>
+		<script type="text/javascript" src="shadowmap preview.js"></script>
+		<script type="text/javascript" src="request.js"></script>
+		<script type="text/javascript" src="object.js"></script>
+
+		<style>
+			body {
+				padding: 0;
+				margin: 0;
+				overflow-x: hidden;
+			}
+			
+			.viewport {
+				position: relative;
+				margin: auto;
+				height: 720px;
+			}
+			
+			.minimap {
+				position: relative;
+				bottom: 20px;
+				left: 20px;
+				transform: translate(0%, -100%);
+			}
+
+			.nav-point {
+				width: 4px;
+				height: 4px;
+				background-color: red;
+				position: absolute;
+				top: 0;
+				left: 0;
+				transform: translate(-50%, -50%);
+			}
+
+			.info {
+				position: absolute;
+				top: 10px;
+				left: 10px;
+				color: #0F0;
+			}
+
+			.shadowmap-selection {
+				position: absolute;
+				right: 18px;
+				bottom: 18px;
+				width: 154px;
+				height: 154px;
+				border: 2px solid #000;
+				display: flex;
+				justify-content: space-between;
+				box-sizing: border-box;
+				padding: 5px 10px;
+			}
+
+			.shadowmap-selection>* {
+				align-self: flex-end;
+			}
+
+			.config {
+				width: 800px;
+				margin: auto;
+				margin-top: 5px;
+				padding-top: 5px;
+				border-top: 1px solid #AAA;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div class="viewport">
+			<div id="info" class="info"></div>
+			<canvas id="gl-canvas" width="1600" height="720"></canvas>
+			<div class="minimap">
+				<canvas id="perlin-canvas" width="300" height="300" style="border: 2px solid #000000; width: 100px; height: 100px;"></canvas>
+				<div id="nav-point" class="nav-point"></div>
+			</div>
+			<div class="shadowmap-selection">
+				<button id="shadowmap-preview-0">1</button>
+				<button id="shadowmap-preview-1">2</button>
+				<button id="shadowmap-preview-2">3</button>
+				<button id="shadowmap-preview-3">4</button>
+			</div>
+		</div>
+
+		<div class="config">
+			<b>Controls:</b>
+			<ul style="margin-top: 2px;">
+				<li>Click canvas to gain camera control</li>
+				<li>WASD for movement</li>
+				<li>Scroll wheel to adjust camera speed</li>
+				<li>CTRL + Scroll wheel to adjust camera FOV</li>
+			</ul>
+
+			<b>Standard debug:</b>
+			<br />
+			<label for="display-normals">
+				<input type="checkbox" id="display-normals" /> Display normals
+			</label>
+
+			<label for="display-quads">
+				<input type="checkbox" id="display-quads" /> Display quads
+			</label>
+
+			<br />
+			<br />
+
+			<b>Shading:</b>
+			<br />
+			<label for="disable-shading">
+				<input type="checkbox" id="disable-shading" /> Disable shading
+			</label>
+
+			<label for="disable-shadows">
+				<input type="checkbox" id="disable-shadows" /> Disable shadows
+			</label>
+
+			<label for="disable-flashlight">
+				<input type="checkbox" id="disable-flashlight" /> Disable flashlight
+			</label>
+			
+			<br />
+			<br />
+
+			<b>Shadows:</b>
+			<br />
+			<label for="shadowmap-frustum">
+				<input type="checkbox" id="shadowmap-frustum" /> Display shadowmap frustum
+			</label>
+
+			<label for="lock-shadowmap">
+				<input type="checkbox" id="lock-shadowmap" /> Lock shadowmap frustum
+			</label>
+
+			<label for="project-shadowmap">
+				<input type="checkbox" id="project-shadowmap" /> Project shadowmap
+			</label>
+
+			<label for="show-cascades" id="show-cascades-label" style="display: none;">
+				<input type="checkbox" id="show-cascades" /> Show cascades
+			</label>
+
+			<br />
+			<br />
+			
+			<label for="shadowmap-resolution">
+				<input type="text" id="shadowmap-resolution" value="2048" size=4 /> Shadowmap texture resolution
+				<br />
+				<span id="shadowmap-megabytes">16.8mb texture</span>
+				<br />
+				<button id="shadowmap-resolution-button" style="margin-top: 2px;">Set Resolution</button>
+			</label>
+
+			<br />
+			<br />
+
+			<h2>Cascaded Shadowmaps</h2>
+			<ul>
+				<li>Instead of rendering one shadowmap for the entire scene, we render multiple with decreasing resolution the further away they get from the camera</li>
+				<li>Additional features included in this program:</li>
+				<ul>
+					<li>Terrain generation using perlin/simplex noise</li>
+					<li>Loading shapes from .obj files</li>
+					<li>Revolved solid support ported from homework 3</li>
+				</ul>
+			</ul>
+		</div>
+	</body>
+
+	<script type="text/javascript" src="index.js"></script>
+</html>
